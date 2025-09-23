@@ -12,13 +12,20 @@ from matplotlib.backends.backend_pdf import PdfPages
 import importlib, subprocess, sys
 
 # Check libraries
-with open("requirements.txt") as f:
-    for line in f:
-        pkg = line.strip().split("==")[0]
-        try:
-            importlib.import_module(pkg)
-        except ImportError:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", line.strip()])
+print("Checking dependencies...")
+result = subprocess.run(
+    [sys.executable, "-m", "pip", "install", "-r", "requirements.txt", "--dry-run"],
+    capture_output=True, text=True)
+if "Would install" in result.stdout:
+    print(result.stdout)
+    resp = input("Some libraries are missing or not the right version. Install now? [y/N] ").strip().lower()
+    if resp == "y":
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
+    else:
+        sys.exit("Exiting: dependencies not satisfied.")
+else:
+    print("All dependencies already installed.")
+    
 
 warnings.filterwarnings("ignore")
 
@@ -50,7 +57,7 @@ def preprocess_mri(img, masking=False):
         moving=img_ants,
         type_of_transform='Rigid',
         random_seed=0,
-        outprefix="./rmdir/"
+        outprefix="./rmdir2/"
     )
     rigid_mri = rigid_params['warpedmovout']
     
@@ -116,7 +123,7 @@ def preprocess_pet(pet, mri_unmasked, smoothing, mask, masking=False):
         moving=img_ants,
         type_of_transform='SyNAggro',
         random_seed=0,
-        outprefix="./rmdir/"
+        outprefix="./rmdir2/"
     )
     
     # Smooth PET to remove noise
@@ -164,7 +171,7 @@ def preprocess_rois(rois, names, mri, mask, folder):
                 moving=mni_template,
                 type_of_transform="SyNAggro",
                 random_seed=0,
-                outprefix="./rmdir/")
+                outprefix="./rmdir2/")
         # Apply transforms, ensure value similarity to org through nearestNeighbor
         transformed_roi = ants.apply_transforms(
                 fixed=mri,
