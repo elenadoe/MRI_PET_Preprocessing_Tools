@@ -1,14 +1,3 @@
-import importlib, subprocess, sys
-
-# Check libraries
-with open("requirements.txt") as f:
-    for line in f:
-        pkg = line.strip().split("==")[0]
-        try:
-            importlib.import_module(pkg)
-        except ImportError:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", line.strip()])
-
 import os
 import tqdm
 import ants
@@ -20,10 +9,20 @@ import scipy.ndimage as nd
 import matplotlib.pyplot as plt
 from antspynet.utilities import brain_extraction
 from matplotlib.backends.backend_pdf import PdfPages
+import importlib, subprocess, sys
+
+# Check libraries
+with open("requirements.txt") as f:
+    for line in f:
+        pkg = line.strip().split("==")[0]
+        try:
+            importlib.import_module(pkg)
+        except ImportError:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", line.strip()])
 
 warnings.filterwarnings("ignore")
 
-mni_template = ants.image_read("../../templates/TPM_GM.nii")    
+mni_template = ants.image_read("../templates/TPM_GM.nii")    
 
 def preprocess_mri(img):
     """
@@ -51,7 +50,7 @@ def preprocess_mri(img):
         moving=img_ants,
         type_of_transform='Rigid',
         random_seed=0,
-        outprefix="./rmdir/"
+        outprefix="/rmdir2/"
     )
     rigid_mri = rigid_params['warpedmovout']
     
@@ -114,7 +113,7 @@ def preprocess_pet(pet, mri_unmasked, smoothing, mask):
         moving=img_ants,
         type_of_transform='SyNAggro',
         random_seed=0,
-        outprefix="./rmdir/"
+        outprefix="/rmdir2/"
     )
     
     # Smooth PET to remove noise
@@ -160,7 +159,7 @@ def preprocess_rois(rois, names, mri, mask, folder):
                 moving=mni_template,
                 type_of_transform="SyNAggro",
                 random_seed=0,
-                outprefix="./rmdir/")
+                outprefix="/rmdir2/")
         # Apply transforms, ensure value similarity to org through nearestNeighbor
         transformed_roi = ants.apply_transforms(
                 fixed=mri,
