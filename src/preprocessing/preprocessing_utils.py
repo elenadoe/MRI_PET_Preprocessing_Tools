@@ -63,7 +63,7 @@ def preprocess_mri(img, masking=False):
     
     # Skull stripping using tensorflow-based function
     brain_extracted = brain_extraction(rigid_mri, modality='t1')
-    rigid_mask = ants.get_mask(brain_extracted, low_thresh=0.5)
+    rigid_mask = ants.get_mask(brain_extracted, low_thresh=0.5, high_thresh=1.5)
     rigid_mask = ants.morphology(rigid_mask, "erode", radius=5)
     rigid_mask = ants.morphology(rigid_mask, "open", radius=5)
     rigid_mask = ants.morphology(rigid_mask, "dilate", radius=5)
