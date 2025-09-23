@@ -22,9 +22,9 @@ with open("requirements.txt") as f:
 
 warnings.filterwarnings("ignore")
 
-mni_template = ants.image_read("../templates/TPM_GM.nii")    
+mni_template = ants.image_read("../../templates/TPM_GM.nii")    
 
-def preprocess_mri(img):
+def preprocess_mri(img, masking=False):
     """
     Skull-stripping, including storing a brainmask,
     and rigid (atrophy-preserving) coregistration to MNI space.
@@ -50,7 +50,7 @@ def preprocess_mri(img):
         moving=img_ants,
         type_of_transform='Rigid',
         random_seed=0,
-        outprefix="/rmdir2/"
+        outprefix="./rmdir/"
     )
     rigid_mri = rigid_params['warpedmovout']
     
@@ -77,14 +77,17 @@ def preprocess_mri(img):
     if not os.path.exists(path_tmp+"/preprocessed/"):
         os.makedirs(path_tmp+"/preprocessed/")
     ants.image_write(rigid_mask, f'{path_tmp}/preprocessed/m_{filename_tmp}')
-    ants.image_write(rigid_masked, f'{path_tmp}/preprocessed/r_{filename_tmp}')
+    if masking:
+        ants.image_write(rigid_masked, f'{path_tmp}/preprocessed/r_{filename_tmp}')
+    else:
+        ants.image_write(rigid_mri, f'{path_tmp}/preprocessed/ru_{filename_tmp}')
 
     params = {'mask': rigid_mask, 'mri': rigid_masked, 'params': rigid_params,
              'mri_unmasked': rigid_mri}
 
     return params
     
-def preprocess_pet(pet, mri_unmasked, smoothing, mask):
+def preprocess_pet(pet, mri_unmasked, smoothing, mask, masking=False):
     """
     Exact co-registration of PET to MRI,
     smoothing of PET scans
@@ -113,21 +116,23 @@ def preprocess_pet(pet, mri_unmasked, smoothing, mask):
         moving=img_ants,
         type_of_transform='SyNAggro',
         random_seed=0,
-        outprefix="/rmdir2/"
+        outprefix="./rmdir/"
     )
     
     # Smooth PET to remove noise
     smoothed = ants.smooth_image(params['warpedmovout'], sigma=smoothing, FWHM=True)
     
-    # Apply mask derived from MRI
-    masked_pet = smoothed * mask
-    
     # Store results
     if not os.path.exists(path_tmp+"/preprocessed/"):
         os.makedirs(path_tmp+"/preprocessed/")
-    ants.image_write(masked_pet, path_tmp+f'/preprocessed/r_s{smoothing}_{filename_tmp}')
+        
+    if masking:
+        masked_pet = smoothed * mask
+        ants.image_write(masked_pet, path_tmp+f'/preprocessed/r_s{smoothing}_{filename_tmp}')
+    else:
+        ants.image_write(smoothed, path_tmp+f'/preprocessed/ru_s{smoothing}_{filename_tmp}')
     
-    return masked_pet
+    return smoothed
 
 def preprocess_rois(rois, names, mri, mask, folder):
     """
@@ -159,7 +164,7 @@ def preprocess_rois(rois, names, mri, mask, folder):
                 moving=mni_template,
                 type_of_transform="SyNAggro",
                 random_seed=0,
-                outprefix="/rmdir2/")
+                outprefix="./rmdir/")
         # Apply transforms, ensure value similarity to org through nearestNeighbor
         transformed_roi = ants.apply_transforms(
                 fixed=mri,
@@ -185,7 +190,7 @@ def preprocess_rois(rois, names, mri, mask, folder):
 
     return results
 
-def compute_suvr(pet, roi, folder, img_id, smoothing=8):
+def compute_suvr(pet, roi, folder, img_id, masking=False, smoothing=8):
     """
     Compute SUVr maps from PET.
     Final images are stored as Nifti files in the shape of PET input.
@@ -205,7 +210,10 @@ def compute_suvr(pet, roi, folder, img_id, smoothing=8):
     roi_pet_mean = pet[roi>0].mean()    
     pet = pet / roi_pet_mean
 
-    # Store results
-    ants.image_write(pet, folder+f'/preprocessed/SUVr_{img_id}.nii')
+    # Store results with correct prefix depending on whether masking was previously applied
+    if masking:
+        ants.image_write(pet, folder+f'/preprocessed/SUVr_r_s{smoothing}_{img_id}.nii')
+    else:
+        ants.image_write(pet, folder+f'/preprocessed/SUVr_ru_s{smoothing}_{img_id}.nii')
 
     return pet
